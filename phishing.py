@@ -3,8 +3,10 @@ from pandas import DataFrame, Series
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn import svm
 import random 
 import numpy as np
+from sklearn.metrics import accuracy_score
 
 DATASET_FILE= "./data/dataset_phishing.csv"
 DATA = pd.read_csv(DATASET_FILE)
@@ -18,7 +20,6 @@ def __cast_dataframe_series(df, column_name)-> Series:
             return df
         return df[column_name].squeeze()
         
-
 def __correlation_in_dataset():
     """
         Runs only on test to find whiche columns might be deleted using the correlation 
@@ -47,6 +48,7 @@ def __balance_dataset(classes_count: dict, data: DataFrame):
     if coef_diff>0.8: return data
     # Remmover filas para balancear la cantidad de datos elatoriamenta - Pendiente - Irrelevante de momento porque si esta balanceado
     return data
+
 # Task 1 
 def data_exploration(random_state):
     """  
@@ -94,8 +96,32 @@ def knn_with_sklearn(X_entreno: DataFrame, X_prueba: DataFrame, X_val: DataFrame
     return knn.score(X_prueba, y_prueba)
 
 # Task 1.2
-def svm():
-    pass
+def native_svm(X_entreno, X_prueba, X_val, y_entreno: DataFrame, y_prueba: DataFrame, y_val: DataFrame, C= 1.0, lr = 0.01, epochs = 1000):
+    w = np.zeros(X_entreno.shape[1])
+    b = 0.0
+    #Transformacion de datos en conveniencia de SVM
+    valores_clasificacion = {"phishing": 1, "legitimate": -1}
+    y_entreno = y_entreno['status'].values
+    y_entreno = np.array([valores_clasificacion[label] for label in y_entreno ])
+    for _ in range(epochs):
+        for i, x in enumerate(X_entreno):
+            perdida = 1 - y_entreno[i] * (np.dot(w, x) + b)
+            if perdida > 0:
+                w -= lr * (C * y_entreno[i] * x - 2 * C * w)
+                b -= lr * (C * y_entreno[i])
+            else:
+                w -= lr * (2 * C * w)
+    y_pred = []
+    for x in X_prueba:
+        y_pred.append(1 if np.dot(w, x) + b > 0 else -1)
+    
+    return y_pred
+
+def svm_w_sklearn(X_entreno: DataFrame, X_prueba: DataFrame, X_val: DataFrame, y_entreno: DataFrame, y_prueba: DataFrame, y_val: DataFrame):
+    clf = svm.SVC(kernel='linear')
+    clf.fit(X_entreno, y_entreno)
+    y_pred = clf.predict(X_prueba)
+    return accuracy_score(y_prueba, y_pred)
 
 def accuracy(y_result, y_real):
     total = len(y_result)
@@ -110,12 +136,23 @@ def accuracy(y_result, y_real):
         if y_result[i] == y_real[i]:
             acc += 1
     return acc/total
-
+#Pruebas
 if __name__ == "__main__":
+    valores_clasificacion = {"phishing": 1, "legitimate": -1}
     X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val = data_exploration(random_state = 0)
+    #Knn
     y_pred = knn(X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val, 5)
     acc = accuracy(y_pred, y_prueba)
     acc_sk = knn_with_sklearn(X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val, 5)
-    print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n--------------knn--------------")
+    #SVM
+    svm_native_y_pred = native_svm(X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val)
+    coded_y_prueba = np.array([valores_clasificacion[label] for label in y_prueba['status'].values])
+    acc_svm = accuracy(svm_native_y_pred, coded_y_prueba)
+    acc_svm_skl = svm_w_sklearn(X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val)
+    print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+    print("--------------knn--------------")
     print(f"Accuracy native knn: {acc}")
     print(f"Accuracy sklearn knn: {acc_sk}")
+    print("--------------svm--------------")
+    print(f"Accuracy native SVM: {acc_svm}")
+    print(f"Accuracy sklearn svm: {acc_svm_skl}")
