@@ -1,11 +1,22 @@
 import pandas as pd
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import random 
+import numpy as np
 
 DATASET_FILE= "./data/dataset_phishing.csv"
 DATA = pd.read_csv(DATASET_FILE)
+
+def __cast_dataframe_series(df, column_name)-> Series:
+    if isinstance(df, Series):
+        return df
+    else:
+        if not isinstance(df, DataFrame):
+            print("Cannot cast an instance other than a datframe")
+            return df
+        return df[column_name].squeeze()
+        
 
 def __correlation_in_dataset():
     """
@@ -13,7 +24,6 @@ def __correlation_in_dataset():
     """
     data = DATA
     data = data.drop(["url"], axis=1)
-
     corr_df = data.corr(method="pearson")# Matriz de correlaciona a analizar
     high_corr = set()
     for i in range(len(corr_df.columns)):
@@ -26,7 +36,6 @@ def __correlation_in_dataset():
     for corr in high_corr:
         if not (corr[0] in deleted or corr[1] in deleted):
             deleted.append(corr[0])
-    
     data = data.drop(deleted, axis=1)
     return data
 
@@ -59,20 +68,47 @@ def data_exploration(random_state):
     y = data.loc[:,data.columns=="status"]
     #Separacion de datos de prueba y entreno
     X_entreno, X_prueba, y_entreno, y_prueba = train_test_split(X, y, test_size = 0.2, random_state = random_state)
-    X_prueba, X_val, y_prueba, y_val = train_test_split(X_prueba, y_prueba, test_size=0.1, random_state = random_state)
+    X_prueba, X_val, y_prueba, y_val = train_test_split(X_prueba, y_prueba, test_size=0.5, random_state = random_state)
     # Scaling
     scaler = StandardScaler()
     X_prueba = scaler.fit_transform(X_prueba)
-    X_entreno = scaler.fit_transform(X_entreno)
-    X_val = scaler.fit_transform(X_val)
+    X_entreno = scaler.transform(X_entreno)
+    X_val = scaler.transform(X_val)
+
     return X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val
+
 # Task 1.1
-def knn():
-    pass
+def knn(X_entreno: DataFrame, X_prueba: DataFrame, X_val: DataFrame, y_entreno: DataFrame, y_prueba: DataFrame, y_val: DataFrame, k:int = 5):
+    y_pred = []
+    y_entreno = __cast_dataframe_series(y_entreno, "status")
+    for x in X_prueba:
+        distances = np.sqrt(((X_entreno - x) ** 2).sum(axis=1))
+        k_nearest_labels = y_entreno.iloc[distances.argsort()[:k]]
+        y_pred.append(k_nearest_labels.value_counts().idxmax())    
+    return y_pred
+
 # Task 1.2
 def svm():
     pass
 
+def accuracy(y_result, y_real):
+    total = len(y_result)
+    if not total== len(y_real):
+        print("Error en comparar listas con tamaño distinto")
+        print(f"Tota resultado {total}")
+        print(f"Total real: {len(y_real)}")
+        return 
+    acc = 0
+    y_real = __cast_dataframe_series(y_real, "status").tolist()
+    for i in range(len(y_result)):
+        if y_result[i] == y_real[i]:
+            acc += 1
+        else:
+            print("Wrong")
+    return acc/total
+
 if __name__ == "__main__":
-    __correlation_in_dataset()
-    #data_exploration(0)
+    X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val = data_exploration(0)
+    y_pred = knn(X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val, 5)
+    acc = accuracy(y_pred, y_prueba)
+    print(acc)
