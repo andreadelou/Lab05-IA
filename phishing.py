@@ -2,6 +2,7 @@ import pandas as pd
 from pandas import DataFrame, Series
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
 import random 
 import numpy as np
 
@@ -87,6 +88,11 @@ def knn(X_entreno: DataFrame, X_prueba: DataFrame, X_val: DataFrame, y_entreno: 
         y_pred.append(k_nearest_labels.value_counts().idxmax())    
     return y_pred
 
+def knn_with_sklearn(X_entreno: DataFrame, X_prueba: DataFrame, X_val: DataFrame, y_entreno: DataFrame, y_prueba: DataFrame, y_val: DataFrame, k:int = 5):
+    knn = KNeighborsClassifier(n_neighbors=k)
+    knn.fit(X_entreno, y_entreno)
+    return knn.score(X_prueba, y_prueba)
+
 # Task 1.2
 def svm():
     pass
@@ -103,12 +109,13 @@ def accuracy(y_result, y_real):
     for i in range(len(y_result)):
         if y_result[i] == y_real[i]:
             acc += 1
-        else:
-            print("Wrong")
     return acc/total
 
 if __name__ == "__main__":
-    X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val = data_exploration(0)
+    X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val = data_exploration(random_state = 0)
     y_pred = knn(X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val, 5)
     acc = accuracy(y_pred, y_prueba)
-    print(acc)
+    acc_sk = knn_with_sklearn(X_entreno, X_prueba, X_val, y_entreno, y_prueba, y_val, 5)
+    print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n--------------knn--------------")
+    print(f"Accuracy native knn: {acc}")
+    print(f"Accuracy sklearn knn: {acc_sk}")
